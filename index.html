@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d9488" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Jersey All Stars — Day-Of Hub (Toms River)</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top-header">
+      <div class="brand-wrap">
+        <div class="brand-logo">J★</div>
+        <div>
+          <div class="brand-title">Jersey <span class="accent">All Stars</span></div>
+          <div class="brand-sub">Toms River, NJ • 2026–2027 Hub</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-season" class="pill-btn" type="button">🗓️ Season (11)</button>
+        <button id="btn-teams-toggle" class="pill-btn" type="button">⚙️ My Teams</button>
+      </div>
+    </header>
+
+    <!-- Active Competition Banner -->
+    <section class="event-banner">
+      <div class="event-banner-top">
+        <div>
+          <div id="ev-name" class="event-name">Encore Philly Showdown (DI/DII)</div>
+          <div id="ev-venue" class="event-venue">PA Convention Center — Hall C • Dec 12–13, 2026</div>
+        </div>
+        <div id="conn-chip" class="status-chip">
+          <span class="dot"></span>
+          <span id="conn-text">Offline Ready</span>
+        </div>
+      </div>
+      <div class="basis-row">
+        <span id="ev-basis">📄 Basis: V1 (11/11 Tentative) • Coach Meet: Pending</span>
+        <button id="btn-share-update" class="link-btn" type="button">Got a newer PDF/Coach sheet?</button>
+      </div>
+    </section>
+
+    <!-- Sticky Multi-Kid Team Picker -->
+    <section id="picker-card" class="picker-card" style="display:none;">
+      <div class="picker-header">
+        <div class="picker-title">⭐ Which JAS Team(s) Are Yours? (Tap 1 or More)</div>
+        <button id="btn-picker-done" class="action-btn" type="button">Done</button>
+      </div>
+      <div id="team-chips" class="chips-grid"></div>
+      <div class="picker-presets">
+        <span style="color:var(--text-dim);">Saved on your phone • Works 100% offline</span>
+        <button id="btn-preset-froriep" class="link-btn" type="button">Select Sea Witches + Kryptonite</button>
+      </div>
+    </section>
+
+    <!-- Day Selector + Spotter Toggle -->
+    <div class="controls-row">
+      <div class="day-tabs">
+        <button class="day-tab active" data-date="2026-12-12" type="button">SAT Dec 12 (Day 1)</button>
+        <button class="day-tab" data-date="2026-12-13" type="button">SUN Dec 13 (Day 2)</button>
+      </div>
+      <button id="btn-spotter-drawer" class="pill-btn" type="button" title="Live Spotter & Alpha Test Simulator">📍 Spotter</button>
+    </div>
+
+    <!-- 4-Tier Parent Focus Dial -->
+    <div class="tier-bar-wrap">
+      <div class="tier-label-row">
+        <span>Parent Focus Filter</span>
+        <span id="tier-desc">Showing: My Teams + JAS + Our Rivals</span>
+      </div>
+      <div class="tier-bar">
+        <button class="tier-btn" data-tier="1" type="button">1 • Mine<small>My Kid(s)</small></button>
+        <button class="tier-btn" data-tier="2" type="button">2 • +JAS<small>Our 9 Teams</small></button>
+        <button class="tier-btn active" data-tier="3" type="button">3 • +Rivals<small>Our Divs</small></button>
+        <button class="tier-btn" data-tier="4" type="button">4 • All<small>Full Scouting</small></button>
+      </div>
+    </div>
+
+    <!-- Live Hall Stage & Drift Banner -->
+    <section id="live-strip" class="live-strip">
+      <div class="live-strip-top">
+        <span id="live-strip-label">📡 Hall C Stage Pulse</span>
+        <span id="drift-pill" class="drift-pill">On Schedule (±0m)</span>
+      </div>
+      <div id="live-stage-main" class="live-stage-main">Awaiting event day check-in (or try 📍 Spotter Alpha Test)</div>
+      <div id="live-stage-sub" class="live-stage-sub">All 387 routines cached offline on your phone.</div>
+    </section>
+
+    <!-- Multi-Kid Overlap Warning -->
+    <div id="conflict-box"></div>
+
+    <!-- Spotter & Alpha Test Simulator Panel -->
+    <section id="spotter-panel" class="spotter-panel" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:0.84rem; font-weight:800; color:#c4b5fd;">📍 Hall Drift Spotter & Alpha Simulator</div>
+        <button id="btn-close-spotter" class="link-btn" type="button">Hide</button>
+      </div>
+      <p style="font-size:0.73rem; color:var(--text-muted); margin-top:4px;">
+        <strong>Alpha Local Test</strong> previews live stage progress &amp; hall delay on <em>your screen only</em>. Unlock with PIN to broadcast live to all JAS parents.
+      </p>
+
+      <!-- Alpha Local Simulator -->
+      <div class="spotter-row">
+        <input id="sim-order-input" class="mini-input" type="number" min="1" max="228" placeholder="Order #" value="85" />
+        <input id="sim-drift-input" class="mini-input" type="number" min="-60" max="120" placeholder="Drift (m)" value="14" />
+        <button id="btn-run-sim" class="action-btn" type="button">🧪 Preview Local</button>
+        <button id="btn-preset-brynn" class="pill-btn" type="button">Test 4 Away (#85, +14m)</button>
+        <button id="btn-clear-sim" class="pill-btn" type="button">Reset Preview</button>
+      </div>
+
+      <!-- Cloud Broadcast PIN Unlock -->
+      <div style="margin-top:10px; padding-top:9px; border-top:1px solid rgba(255,255,255,0.08);">
+        <div id="cloud-locked-row" class="spotter-row" style="margin-top:0;">
+          <span style="font-size:0.73rem; color:var(--text-dim);">Live Cloud Broadcast:</span>
+          <input id="spotter-pin-input" class="mini-input" type="password" inputmode="numeric" placeholder="Spotter PIN" />
+          <button id="btn-unlock-pin" class="action-btn" type="button">Unlock Live Spotter</button>
+        </div>
+        <div id="cloud-unlocked-row" style="display:none;">
+          <div style="font-size:0.74rem; color:#4ade80; font-weight:700; margin-bottom:6px;">
+            🟢 Live Spotter Unlocked — Tap [📍 On Mat] on any routine in Tier 4, or enter Order # below:
+          </div>
+          <div class="spotter-row" style="margin-top:0;">
+            <input id="live-order-input" class="mini-input" type="number" min="1" max="228" placeholder="Order #" />
+            <button id="btn-push-live" class="action-btn" type="button">📡 Push On Mat Now</button>
+            <button id="btn-clear-live" class="action-btn warn" type="button">Clear Live Stage</button>
+          </div>
+        </div>
+        <div id="spotter-msg" style="font-size:0.71rem; color:#fbbf24; margin-top:5px;"></div>
+      </div>
+    </section>
+
+    <!-- TIER 1: Starred My Teams Section -->
+    <div id="sec-tier1">
+      <div class="sec-hdr">
+        <span class="sec-title">⭐ My Athlete(s)</span>
+        <span id="my-teams-count" class="sec-sub"></span>
+      </div>
+      <div id="my-teams-container"></div>
+    </div>
+
+    <!-- TIER 2: Chronological All-JAS Gym Timeline -->
+    <div id="sec-tier2" style="display:none;">
+      <div class="sec-hdr">
+        <span class="sec-title">🐾 All Jersey All Stars Teams</span>
+        <span class="sec-sub">Toms River, NJ Only</span>
+      </div>
+      <div id="jas-feed-container" class="feed-list"></div>
+    </div>
+
+    <!-- TIER 3 & 4: Division Rivals Breakdown -->
+    <div id="sec-rivals" style="display:none;">
+      <div class="sec-hdr">
+        <span id="rivals-hdr-title" class="sec-title">🏆 Division Rivals</span>
+        <span id="rivals-hdr-sub" class="sec-sub"></span>
+      </div>
+      <div id="rivals-container"></div>
+    </div>
+
+    <!-- TIER 4 EXTRA: Full Hall C Searchable Order -->
+    <div id="sec-full-hall" style="display:none;">
+      <div class="sec-hdr">
+        <span class="sec-title">📋 Full Hall C Running Order</span>
+        <span id="full-hall-count" class="sec-sub"></span>
+      </div>
+      <input id="hall-search" class="search-input" type="search" placeholder="Search any gym, team, division, or #..." />
+      <div id="full-hall-container" class="feed-list"></div>
+    </div>
+
+    <!-- Offline & Calendar Utility Buttons -->
+    <div class="utility-grid">
+      <button id="btn-ics" class="util-btn" type="button">📅 Add My Teams (.ics)</button>
+      <a class="util-btn" href="./downloads/JAS_Encore_Philly_2026_V1_Backup.xlsx" download>📊 Offline Excel (.xlsx)</a>
+    </div>
+
+    <footer class="rev-footer">
+      <div>Jersey All Stars (Toms River, NJ) — Strictly Unaffiliated With Other Programs</div>
+      <div style="margin-top:4px; font-weight:700; color:var(--text-muted);">Rev v1.0 — 2026-11-13 17:04</div>
+    </footer>
+  </div>
+
+  <!-- Season Calendar & Schedule Source Radar Modal -->
+  <div id="season-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="font-size:1rem; font-weight:900;">🗓️ 2026–2027 JAS Season &amp; Schedule Radar</div>
+        <button id="btn-close-season" class="action-btn" type="button">Close</button>
+      </div>
+      <p style="font-size:0.74rem; color:var(--text-muted); margin-bottom:10px;">
+        Full Toms River JAS competition slate + where producer schedules drop first.
+      </p>
+      <div id="season-list"></div>
+    </div>
+  </div>
+
+  <!-- Share Newer PDF / Coach Info Modal -->
+  <div id="update-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:0.95rem; font-weight:900;">📄 Schedule Version Check</div>
+        <button id="btn-close-update" class="action-btn" type="button">Close</button>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;">
+        This hub is currently loaded with <strong>Encore Philly Showdown V1 (as of 11/11/2026)</strong>.
+        Producers often email <strong>V2 / V3</strong> drafts to coaches or post them in the Event BAND before updating the website, and JAS Coaches release <strong>Meet-Coach &amp; Awards times</strong> ~2–3 days before compete day.
+      </p>
+      <p style="font-size:0.78rem; color:var(--teal); font-weight:700; margin-top:8px;">
+        If you received a newer PDF or Coach Check-In sheet, text/send it to Dave so we can push the verified update to everyone's phone!
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
