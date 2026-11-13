@@ -1,16 +1,27 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
-// Register Offline-First Service Worker
+// Register Offline-First Service Worker + Seamless Auto-Refresh on Version Bump
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(err => console.warn("SW reg warning:", err));
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      reg.update().catch(() => {});
+    }).catch(err => console.warn("SW reg warning:", err));
+  });
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController && !refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
 
 // Local Storage Keys
 const LS_STARRED = "jas2027_starred_teams";
 const LS_TIER = "jas2027_focus_tier";
+const LS_VIEW_MODE = "jas2027_view_mode";
 const LS_SETUP_DONE = "jas2027_setup_seen";
 const LS_LAST_LIVE = "jas2027_last_live_cache";
 const LS_SPOTTER_SESSION = "jas2027_spotter_session";
@@ -18,15 +29,17 @@ const LS_SPOTTER_SESSION = "jas2027_spotter_session";
 const TIER_DESCRIPTIONS = {
   1: "1 • My Kid's Team(s) Only",
   2: "2 • My Teams + All 9 JAS Teams",
-  3: "3 • My Teams + JAS + Our Division Rivals",
-  4: "4 • All JAS Divisions + Full Hall Search"
+  3: "3 • My Teams + JAS + My Division Rivals",
+  4: "4 • My Teams + JAS + All JAS Divisions' Rivals"
 };
 
 let APP_DATA = null;
 let EVENT = null;
 let ENTRIES = [];
 let currentDay = "2026-12-12";
+let currentViewMode = localStorage.getItem(LS_VIEW_MODE) === "full" ? "full" : "hub";
 let currentTier = Number(localStorage.getItem(LS_TIER) || 3);
+let currentQuickFilter = "all"; // 'all' | 'jas' | 'rivals'
 let starredTeams = JSON.parse(localStorage.getItem(LS_STARRED) || '["Sea Witches","Kryptonite"]');
 
 // Live / Sim State: { order, date, driftMin, updatedAt, mode: 'cloud' | 'sim' }
@@ -86,6 +99,8 @@ async function loadData() {
   EVENT = APP_DATA.events[evId];
   ENTRIES = EVENT.entries;
 
+  $("full-total-pill").textContent = String(ENTRIES.length);
+
   // Show team picker automatically on very first visit so parents see customization
   if (!localStorage.getItem(LS_SETUP_DONE)) {
     $("picker-card").style.display = "block";
@@ -94,9 +109,35 @@ async function loadData() {
 
   renderTeamChips();
   renderSeasonModal();
+  syncViewModeUI();
   syncTierButtons();
+  syncDayTabsUI();
   renderAll();
   initFirebase();
+}
+
+function setViewMode(mode, scrollTop = true) {
+  currentViewMode = mode === "full" ? "full" : "hub";
+  localStorage.setItem(LS_VIEW_MODE, currentViewMode);
+  syncViewModeUI();
+  renderAll();
+  if (scrollTop) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+}
+
+function syncViewModeUI() {
+  const isFull = currentViewMode === "full";
+  $("btn-mode-hub").classList.toggle("active", !isFull);
+  $("btn-mode-full").classList.toggle("active", isFull);
+  $("view-my-hub").style.display = isFull ? "none" : "block";
+  $("view-full-sched").style.display = isFull ? "block" : "none";
+}
+
+function syncDayTabsUI() {
+  document.querySelectorAll(".day-tab").forEach(b => {
+    b.classList.toggle("active", b.dataset.date === currentDay);
+  });
 }
 
 function renderTeamChips() {
@@ -285,7 +326,6 @@ function renderTier2JasFeed() {
   sec.style.display = "block";
   const live = getActiveLive();
 
-  // Include JAS teams + major meal breaks between JAS teams
   const jasRows = ENTRIES.filter(e =>
     e.date === currentDay && (e.is_jas || (e.is_break && e.program.toUpperCase().includes("LUNCH")))
   ).sort((a, b) => a.order - b.order);
@@ -336,7 +376,7 @@ function renderRivalsSection() {
     (currentTier === 4 || starredTeams.includes(e.team))
   ).sort((a, b) => a.order - b.order);
 
-  $("rivals-hdr-title").textContent = currentTier === 3 ? "🏆 Our Division Rivals" : "🏆 All JAS Division Scouting";
+  $("rivals-hdr-title").textContent = currentTier === 3 ? "🏆 My Division Rivals" : "🏆 All JAS Division Scouting";
   $("rivals-hdr-sub").textContent = `${targetJasEntries.length} division${targetJasEntries.length === 1 ? "" : "s"}`;
 
   $("rivals-container").innerHTML = targetJasEntries.map(jas => {
@@ -381,35 +421,57 @@ function renderRivalsSection() {
 }
 
 function renderFullHallSection() {
-  const sec = $("sec-full-hall");
-  if (currentTier < 4) {
-    sec.style.display = "none";
-    return;
-  }
-  sec.style.display = "block";
+  if (currentViewMode !== "full") return;
+
   const live = getActiveLive();
-  const q = ($("hall-search").value || "").trim().toLowerCase();
+  const rawSearch = $("hall-search").value || "";
+  const q = rawSearch.trim().toLowerCase();
+  $("btn-clear-search").style.display = rawSearch.length > 0 ? "flex" : "none";
+  $("btn-jump-live").style.display = (live && live.order) ? "inline-block" : "none";
 
   const jasDivMap = new Map();
   ENTRIES.filter(e => e.date === currentDay && e.is_jas).forEach(j => jasDivMap.set(j.division, j.team));
 
-  let rows = ENTRIES.filter(e => e.date === currentDay);
+  const dayEntries = ENTRIES.filter(e => e.date === currentDay);
+  let rows = dayEntries;
+
+  if (currentQuickFilter === "jas") {
+    rows = rows.filter(e => e.is_jas);
+  } else if (currentQuickFilter === "rivals") {
+    rows = rows.filter(e => e.is_jas || jasDivMap.has(e.division));
+  }
+
   if (q) {
+    const qDigits = q.replace(/^#/, "");
     rows = rows.filter(e =>
+      String(e.order) === qDigits ||
       String(e.order).includes(q) ||
       (e.program && e.program.toLowerCase().includes(q)) ||
       (e.team && e.team.toLowerCase().includes(q)) ||
       (e.division && e.division.toLowerCase().includes(q)) ||
-      (e.location && e.location.toLowerCase().includes(q))
+      (e.location && e.location.toLowerCase().includes(q)) ||
+      (e.compete && e.compete.toLowerCase().includes(q)) ||
+      (e.panel && ("panel " + e.panel.toLowerCase()).includes(q))
     );
   }
 
-  $("full-hall-count").textContent = `${rows.length} entries`;
+  $("full-hall-count").textContent = rows.length === dayEntries.length
+    ? `${rows.length} entries`
+    : `${rows.length} of ${dayEntries.length}`;
+
   const canSpot = Boolean(spotterSessionId);
+
+  if (!rows.length) {
+    $("full-hall-container").innerHTML = `
+      <div class="my-team-card" style="text-align:center; padding:18px;">
+        <div class="mtc-div">No routines match "<strong>${rawSearch.replace(/[<>&"]/g, "")}</strong>" on ${currentDay === "2026-12-12" ? "Saturday" : "Sunday"}.</div>
+      </div>`;
+    return;
+  }
 
   $("full-hall-container").innerHTML = rows.map(e => {
     if (e.is_break) {
-      return `<div class="feed-row break-row">⏸️ #${e.order} — ${e.program} (${e.compete})</div>`;
+      return `<div id="routine-row-${e.order}" class="feed-row break-row">⏸️ #${e.order} — ${e.program} (${e.compete})</div>`;
     }
     const isUs = e.is_jas;
     const rivalOf = !isUs ? jasDivMap.get(e.division) : null;
@@ -424,23 +486,26 @@ function renderFullHallSection() {
     if (isNow) cls += " live-now-row";
 
     let badge = "";
-    if (isUs) badge = `<span class="tag-badge tag-jas">★ JAS TOMS RIVER</span>`;
-    else if (rivalOf) badge = `<span class="tag-badge tag-rival">🏆 ${rivalOf} Rival</span>`;
+    if (isNow) badge += `<span class="tag-badge" style="background:rgba(34,197,94,0.22); color:#86efac; margin-right:4px;">🔥 ON MAT</span>`;
+    if (isUs) badge += `<span class="tag-badge tag-jas">★ JAS TOMS RIVER</span>`;
+    else if (rivalOf) badge += `<span class="tag-badge tag-rival">🏆 ${rivalOf} Rival</span>`;
 
     const spotBtn = canSpot
       ? `<button type="button" class="spot-btn" data-spot-order="${e.order}">📍 On Mat</button>`
       : "";
 
+    const wuNote = e.warmup_checkin ? ` • WU ${e.warmup_checkin}` : "";
+
     return `
-      <div class="${cls}">
+      <div id="routine-row-${e.order}" class="${cls}">
         <div class="fr-time">
           <div class="fr-sched">${e.compete}</div>
           ${est ? `<div class="fr-est">~${est}</div>` : ""}
-          <div class="fr-order">#${e.order} • ${e.panel || "—"}</div>
+          <div class="fr-order">#${e.order} • Pnl ${e.panel || "—"}</div>
         </div>
         <div class="fr-body">
           <div class="fr-title">${e.program}${e.team ? " — " + e.team : ""}</div>
-          <div class="fr-sub">${e.division} • ${e.location}</div>
+          <div class="fr-sub">${e.division}${wuNote} • ${e.location}</div>
           ${badge}
         </div>
         ${spotBtn}
@@ -485,12 +550,15 @@ function renderSeasonModal() {
 }
 
 function renderAll() {
-  renderLiveStrip();
-  renderConflicts();
-  renderTier1MyTeams();
-  renderTier2JasFeed();
-  renderRivalsSection();
-  renderFullHallSection();
+  if (currentViewMode === "full") {
+    renderFullHallSection();
+  } else {
+    renderLiveStrip();
+    renderConflicts();
+    renderTier1MyTeams();
+    renderTier2JasFeed();
+    renderRivalsSection();
+  }
 }
 
 // ── .ICS Native Phone Calendar Generator ─────────────────────
@@ -502,7 +570,6 @@ function exportIcsCalendar() {
     const mins = parseMinutes(timeStr);
     if (mins === null) return null;
     const [y, m, d] = dateStr.split("-").map(Number);
-    // EST is UTC-5 in December; create local Date safely
     const dt = new Date(y, m - 1, d, Math.floor(mins / 60), mins % 60, 0);
     dt.setMinutes(dt.getMinutes() + offsetMins);
     const pad = n => String(n).padStart(2, "0");
@@ -605,7 +672,7 @@ async function unlockSpotterPin() {
     $("cloud-locked-row").style.display = "none";
     $("cloud-unlocked-row").style.display = "block";
     $("spotter-msg").textContent = "Spotter PIN verified!";
-    renderFullHallSection();
+    renderAll();
   } catch (e) {
     $("spotter-msg").textContent = "Invalid PIN (or offline). Use 🧪 Preview Local for offline testing.";
   }
@@ -619,7 +686,6 @@ async function pushLiveSpotterOrder(orderNum) {
     return;
   }
 
-  // Compute live drift vs current wall-clock if on event date, otherwise 0m (or sim drift input if set)
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   let driftMin = 0;
@@ -662,7 +728,18 @@ async function clearLiveSpotter() {
   }
 }
 
+function toggleSpotterPanel() {
+  const p = $("spotter-panel");
+  p.style.display = p.style.display === "none" ? "block" : "none";
+  if (p.style.display === "block") {
+    p.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
 // ── UI Wire-Up ───────────────────────────────────────────────
+$("btn-mode-hub").addEventListener("click", () => setViewMode("hub"));
+$("btn-mode-full").addEventListener("click", () => setViewMode("full"));
+
 $("btn-teams-toggle").addEventListener("click", () => {
   const el = $("picker-card");
   el.style.display = el.style.display === "none" ? "block" : "none";
@@ -679,9 +756,8 @@ $("btn-preset-froriep").addEventListener("click", () => {
 
 document.querySelectorAll(".day-tab").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".day-tab").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
     currentDay = btn.dataset.date;
+    syncDayTabsUI();
     renderAll();
   });
 });
@@ -695,7 +771,38 @@ document.querySelectorAll(".tier-btn").forEach(btn => {
   });
 });
 
+document.querySelectorAll("[data-qfilter]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentQuickFilter = btn.dataset.qfilter;
+    document.querySelectorAll("[data-qfilter]").forEach(b =>
+      b.classList.toggle("active", b.dataset.qfilter === currentQuickFilter)
+    );
+    renderFullHallSection();
+  });
+});
+
 $("hall-search").addEventListener("input", () => renderFullHallSection());
+$("btn-clear-search").addEventListener("click", () => {
+  $("hall-search").value = "";
+  $("hall-search").focus();
+  renderFullHallSection();
+});
+
+$("btn-jump-live").addEventListener("click", () => {
+  const live = getActiveLive();
+  if (!live || !live.order) return;
+  if (currentQuickFilter !== "all" || $("hall-search").value) {
+    currentQuickFilter = "all";
+    $("hall-search").value = "";
+    document.querySelectorAll("[data-qfilter]").forEach(b =>
+      b.classList.toggle("active", b.dataset.qfilter === "all")
+    );
+    renderFullHallSection();
+  }
+  const row = document.getElementById(`routine-row-${live.order}`);
+  if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
 $("btn-ics").addEventListener("click", exportIcsCalendar);
 
 $("btn-season").addEventListener("click", () => { $("season-modal").style.display = "flex"; });
@@ -706,10 +813,8 @@ $("btn-share-update").addEventListener("click", () => { $("update-modal").style.
 $("btn-close-update").addEventListener("click", () => { $("update-modal").style.display = "none"; });
 $("update-modal").addEventListener("click", e => { if (e.target === $("update-modal")) $("update-modal").style.display = "none"; });
 
-$("btn-spotter-drawer").addEventListener("click", () => {
-  const p = $("spotter-panel");
-  p.style.display = p.style.display === "none" ? "block" : "none";
-});
+$("btn-spotter-drawer").addEventListener("click", toggleSpotterPanel);
+$("btn-spotter-full").addEventListener("click", toggleSpotterPanel);
 $("btn-close-spotter").addEventListener("click", () => { $("spotter-panel").style.display = "none"; });
 
 $("btn-run-sim").addEventListener("click", () => {
@@ -723,7 +828,7 @@ $("btn-run-sim").addEventListener("click", () => {
 
 $("btn-preset-brynn").addEventListener("click", () => {
   currentDay = "2026-12-12";
-  document.querySelectorAll(".day-tab").forEach(b => b.classList.toggle("active", b.dataset.date === currentDay));
+  syncDayTabsUI();
   $("sim-order-input").value = "85";
   $("sim-drift-input").value = "14";
   simLiveState = { order: 85, date: "2026-12-12", driftMin: 14, updatedAt: Date.now(), mode: "sim" };

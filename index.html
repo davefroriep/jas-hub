@@ -28,6 +28,12 @@
       </div>
     </header>
 
+    <!-- Primary Top View Bar: Instant 1-Tap Switch to Full Schedule -->
+    <nav class="top-mode-bar" aria-label="Primary View">
+      <button id="btn-mode-hub" class="mode-btn active" type="button">⭐ My Day-Of Hub</button>
+      <button id="btn-mode-full" class="mode-btn" type="button">📋 Full Schedule <span id="full-total-pill" class="mode-count">387</span></button>
+    </nav>
+
     <!-- Active Competition Banner -->
     <section class="event-banner">
       <div class="event-banner-top">
@@ -59,53 +65,16 @@
       </div>
     </section>
 
-    <!-- Day Selector + Spotter Toggle -->
-    <div class="controls-row">
-      <div class="day-tabs">
-        <button class="day-tab active" data-date="2026-12-12" type="button">SAT Dec 12 (Day 1)</button>
-        <button class="day-tab" data-date="2026-12-13" type="button">SUN Dec 13 (Day 2)</button>
-      </div>
-      <button id="btn-spotter-drawer" class="pill-btn" type="button" title="Live Spotter & Alpha Test Simulator">📍 Spotter</button>
-    </div>
-
-    <!-- 4-Tier Parent Focus Dial -->
-    <div class="tier-bar-wrap">
-      <div class="tier-label-row">
-        <span>Parent Focus Filter</span>
-        <span id="tier-desc">Showing: My Teams + JAS + Our Rivals</span>
-      </div>
-      <div class="tier-bar">
-        <button class="tier-btn" data-tier="1" type="button">1 • Mine<small>My Kid(s)</small></button>
-        <button class="tier-btn" data-tier="2" type="button">2 • +JAS<small>Our 9 Teams</small></button>
-        <button class="tier-btn active" data-tier="3" type="button">3 • +Rivals<small>Our Divs</small></button>
-        <button class="tier-btn" data-tier="4" type="button">4 • All<small>Full Scouting</small></button>
-      </div>
-    </div>
-
-    <!-- Live Hall Stage & Drift Banner -->
-    <section id="live-strip" class="live-strip">
-      <div class="live-strip-top">
-        <span id="live-strip-label">📡 Hall C Stage Pulse</span>
-        <span id="drift-pill" class="drift-pill">On Schedule (±0m)</span>
-      </div>
-      <div id="live-stage-main" class="live-stage-main">Awaiting event day check-in (or try 📍 Spotter Alpha Test)</div>
-      <div id="live-stage-sub" class="live-stage-sub">All 387 routines cached offline on your phone.</div>
-    </section>
-
-    <!-- Multi-Kid Overlap Warning -->
-    <div id="conflict-box"></div>
-
-    <!-- Spotter & Alpha Test Simulator Panel -->
+    <!-- Shared Spotter & Alpha Test Simulator Panel (Works in Both Views) -->
     <section id="spotter-panel" class="spotter-panel" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-size:0.84rem; font-weight:800; color:#c4b5fd;">📍 Hall Drift Spotter & Alpha Simulator</div>
+        <div style="font-size:0.84rem; font-weight:800; color:#c4b5fd;">📍 Hall Drift Spotter &amp; Alpha Simulator</div>
         <button id="btn-close-spotter" class="link-btn" type="button">Hide</button>
       </div>
       <p style="font-size:0.73rem; color:var(--text-muted); margin-top:4px;">
         <strong>Alpha Local Test</strong> previews live stage progress &amp; hall delay on <em>your screen only</em>. Unlock with PIN to broadcast live to all JAS parents.
       </p>
 
-      <!-- Alpha Local Simulator -->
       <div class="spotter-row">
         <input id="sim-order-input" class="mini-input" type="number" min="1" max="228" placeholder="Order #" value="85" />
         <input id="sim-drift-input" class="mini-input" type="number" min="-60" max="120" placeholder="Drift (m)" value="14" />
@@ -114,7 +83,6 @@
         <button id="btn-clear-sim" class="pill-btn" type="button">Reset Preview</button>
       </div>
 
-      <!-- Cloud Broadcast PIN Unlock -->
       <div style="margin-top:10px; padding-top:9px; border-top:1px solid rgba(255,255,255,0.08);">
         <div id="cloud-locked-row" class="spotter-row" style="margin-top:0;">
           <span style="font-size:0.73rem; color:var(--text-dim);">Live Cloud Broadcast:</span>
@@ -123,7 +91,7 @@
         </div>
         <div id="cloud-unlocked-row" style="display:none;">
           <div style="font-size:0.74rem; color:#4ade80; font-weight:700; margin-bottom:6px;">
-            🟢 Live Spotter Unlocked — Tap [📍 On Mat] on any routine in Tier 4, or enter Order # below:
+            🟢 Live Spotter Unlocked — Tap [📍 On Mat] on any routine in Full Schedule, or enter Order # below:
           </div>
           <div class="spotter-row" style="margin-top:0;">
             <input id="live-order-input" class="mini-input" type="number" min="1" max="228" placeholder="Order #" />
@@ -135,42 +103,105 @@
       </div>
     </section>
 
-    <!-- TIER 1: Starred My Teams Section -->
-    <div id="sec-tier1">
-      <div class="sec-hdr">
-        <span class="sec-title">⭐ My Athlete(s)</span>
-        <span id="my-teams-count" class="sec-sub"></span>
+    <!-- ================================================================ -->
+    <!-- VIEW 1: PERSONALIZED JAS PARENT HUB                              -->
+    <!-- ================================================================ -->
+    <main id="view-my-hub">
+      <div class="controls-row">
+        <div class="day-tabs">
+          <button class="day-tab active" data-date="2026-12-12" type="button">SAT Dec 12 (Day 1)</button>
+          <button class="day-tab" data-date="2026-12-13" type="button">SUN Dec 13 (Day 2)</button>
+        </div>
+        <button id="btn-spotter-drawer" class="pill-btn" type="button" title="Live Spotter & Alpha Test Simulator">📍 Spotter</button>
       </div>
-      <div id="my-teams-container"></div>
-    </div>
 
-    <!-- TIER 2: Chronological All-JAS Gym Timeline -->
-    <div id="sec-tier2" style="display:none;">
-      <div class="sec-hdr">
-        <span class="sec-title">🐾 All Jersey All Stars Teams</span>
-        <span class="sec-sub">Toms River, NJ Only</span>
+      <!-- 4-Tier Parent Focus Dial -->
+      <div class="tier-bar-wrap">
+        <div class="tier-label-row">
+          <span>Parent Focus Filter</span>
+          <span id="tier-desc">Showing: My Teams + JAS + Our Rivals</span>
+        </div>
+        <div class="tier-bar">
+          <button class="tier-btn" data-tier="1" type="button">1 • Mine<small>My Kid(s)</small></button>
+          <button class="tier-btn" data-tier="2" type="button">2 • +JAS<small>Our 9 Teams</small></button>
+          <button class="tier-btn active" data-tier="3" type="button">3 • +My Rivals<small>My Div(s)</small></button>
+          <button class="tier-btn" data-tier="4" type="button">4 • +JAS Rivals<small>All JAS Divs</small></button>
+        </div>
       </div>
-      <div id="jas-feed-container" class="feed-list"></div>
-    </div>
 
-    <!-- TIER 3 & 4: Division Rivals Breakdown -->
-    <div id="sec-rivals" style="display:none;">
-      <div class="sec-hdr">
-        <span id="rivals-hdr-title" class="sec-title">🏆 Division Rivals</span>
-        <span id="rivals-hdr-sub" class="sec-sub"></span>
-      </div>
-      <div id="rivals-container"></div>
-    </div>
+      <!-- Live Hall Stage & Drift Banner -->
+      <section id="live-strip" class="live-strip">
+        <div class="live-strip-top">
+          <span id="live-strip-label">📡 Hall C Stage Pulse</span>
+          <span id="drift-pill" class="drift-pill">On Schedule (±0m)</span>
+        </div>
+        <div id="live-stage-main" class="live-stage-main">Awaiting event day check-in (or try 📍 Spotter Alpha Test)</div>
+        <div id="live-stage-sub" class="live-stage-sub">All 387 routines cached offline on your phone.</div>
+      </section>
 
-    <!-- TIER 4 EXTRA: Full Hall C Searchable Order -->
-    <div id="sec-full-hall" style="display:none;">
-      <div class="sec-hdr">
-        <span class="sec-title">📋 Full Hall C Running Order</span>
-        <span id="full-hall-count" class="sec-sub"></span>
+      <!-- Multi-Kid Overlap Warning -->
+      <div id="conflict-box"></div>
+
+      <!-- TIER 1: Starred My Teams Section -->
+      <div id="sec-tier1">
+        <div class="sec-hdr">
+          <span class="sec-title">⭐ My Athlete(s)</span>
+          <span id="my-teams-count" class="sec-sub"></span>
+        </div>
+        <div id="my-teams-container"></div>
       </div>
-      <input id="hall-search" class="search-input" type="search" placeholder="Search any gym, team, division, or #..." />
-      <div id="full-hall-container" class="feed-list"></div>
-    </div>
+
+      <!-- TIER 2: Chronological All-JAS Gym Timeline -->
+      <div id="sec-tier2" style="display:none;">
+        <div class="sec-hdr">
+          <span class="sec-title">🐾 All Jersey All Stars Teams</span>
+          <span class="sec-sub">Toms River, NJ Only</span>
+        </div>
+        <div id="jas-feed-container" class="feed-list"></div>
+      </div>
+
+      <!-- TIER 3 & 4: Division Rivals Breakdown -->
+      <div id="sec-rivals" style="display:none;">
+        <div class="sec-hdr">
+          <span id="rivals-hdr-title" class="sec-title">🏆 Division Rivals</span>
+          <span id="rivals-hdr-sub" class="sec-sub"></span>
+        </div>
+        <div id="rivals-container"></div>
+      </div>
+    </main>
+
+    <!-- ================================================================ -->
+    <!-- VIEW 2: DEDICATED ZERO-SCROLL FULL SCHEDULE + SAT/SUN + SEARCH   -->
+    <!-- ================================================================ -->
+    <section id="view-full-sched" style="display:none;">
+      <div class="full-sticky-top">
+        <div class="controls-row" style="margin-top:0;">
+          <div class="day-tabs">
+            <button class="day-tab active" data-date="2026-12-12" type="button">SAT Dec 12 <span class="tab-cnt">(228)</span></button>
+            <button class="day-tab" data-date="2026-12-13" type="button">SUN Dec 13 <span class="tab-cnt">(159)</span></button>
+          </div>
+          <button id="btn-spotter-full" class="pill-btn" type="button" title="Live Spotter & Alpha Test Simulator">📍 Spotter</button>
+        </div>
+
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input id="hall-search" class="search-input" type="search" placeholder="Search team, gym, division, city, or #..." autocomplete="off" />
+          <button id="btn-clear-search" class="search-clear" type="button" style="display:none;" aria-label="Clear search">✕</button>
+        </div>
+
+        <div class="quick-filter-row">
+          <div class="qf-pills">
+            <button type="button" class="qf-btn active" data-qfilter="all">All</button>
+            <button type="button" class="qf-btn" data-qfilter="jas">★ JAS Only</button>
+            <button type="button" class="qf-btn" data-qfilter="rivals">🏆 JAS + Rivals</button>
+            <button type="button" id="btn-jump-live" class="qf-btn live-jump" style="display:none;">🎯 Jump to Live</button>
+          </div>
+          <span id="full-hall-count" class="sec-sub">228 entries</span>
+        </div>
+      </div>
+
+      <div id="full-hall-container" class="feed-list" style="margin-top:8px;"></div>
+    </section>
 
     <!-- Offline & Calendar Utility Buttons -->
     <div class="utility-grid">
@@ -180,7 +211,7 @@
 
     <footer class="rev-footer">
       <div>Jersey All Stars (Toms River, NJ) — Strictly Unaffiliated With Other Programs</div>
-      <div style="margin-top:4px; font-weight:700; color:var(--text-muted);">Rev v1.0 — 2026-11-13 17:04</div>
+      <div style="margin-top:4px; font-weight:700; color:var(--text-muted);">Rev v1.1 — 2026-11-13 17:34</div>
     </footer>
   </div>
 
