@@ -86,6 +86,56 @@ function getAdjustedTime(schedStr, live) {
   return formatMinutes(base + live.driftMin);
 }
 
+function formatDuration(mins) {
+  if (mins === null || mins === undefined) return "";
+  const m = Math.round(mins);
+  if (m <= 0) return "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
+function getTodayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function countTeamsBefore(dateStr, targetOrder) {
+  return ENTRIES.filter(x => x.date === dateStr && !x.is_break && x.order < targetOrder).length;
+}
+
+function countTeamsUntil(dateStr, liveOrder, targetOrder) {
+  return ENTRIES.filter(x => x.date === dateStr && !x.is_break && x.order > liveOrder && x.order <= targetOrder).length;
+}
+
+function countClockTeamsUntil(dateStr, nowMins, targetOrder) {
+  return ENTRIES.filter(x => x.date === dateStr && !x.is_break && (parseMinutes(x.compete) ?? 0) >= nowMins && x.order <= targetOrder).length;
+}
+
+function getRemainingMinutesToEntry(targetEntry, live) {
+  const targetMin = parseMinutes(targetEntry.compete);
+  if (targetMin === null) return null;
+  if (live && live.order) {
+    const curEntry = ENTRIES.find(x => x.date === targetEntry.date && x.order === live.order);
+    if (getTodayIso() === targetEntry.date && live.mode === "cloud") {
+      const estTarget = targetMin + (live.driftMin || 0);
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      return Math.max(0, estTarget - nowMins);
+    }
+    if (curEntry) {
+      const curMin = parseMinutes(curEntry.compete);
+      if (curMin !== null) return Math.max(0, targetMin - curMin);
+    }
+  } else if (getTodayIso() === targetEntry.date) {
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    return targetMin > nowMins ? (targetMin - nowMins) : null;
+  }
+  return null;
+}
+
 async function sha256Hex(str) {
   const buf = new TextEncoder().encode(str);
   const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -173,14 +223,40 @@ function renderLiveStrip() {
   const live = getActiveLive();
   const strip = $("live-strip");
   const pill = $("drift-pill");
+  const nextBar = $("next-jas-bar");
   strip.classList.remove("is-live", "is-jas-stage");
   pill.classList.remove("late", "early");
+  nextBar.className = "next-jas-bar";
+
+  const dayJas = ENTRIES.filter(e => e.date === currentDay && e.is_jas)
+    .sort((a, b) => a.order - b.order);
 
   if (!live || !live.order) {
     $("live-strip-label").textContent = "📡 Hall C Stage Pulse";
     pill.textContent = "Schedule Mode (±0m)";
     $("live-stage-main").textContent = "No live mat check-in active for this day yet";
     $("live-stage-sub").textContent = "Works 100% offline • Tap 📍 Spotter to test live drift or check in a routine.";
+
+    if (getTodayIso() === currentDay) {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const nextByClock = dayJas.find(j => (parseMinutes(j.compete) ?? 0) >= nowMins);
+      if (nextByClock) {
+        const rem = (parseMinutes(nextByClock.compete) || 0) - nowMins;
+        const clockTeams = countClockTeamsUntil(currentDay, nowMins, nextByClock.order);
+        if (clockTeams <= 5) nextBar.classList.add("urgent");
+        nextBar.innerHTML = `<span>🐾 Next JAS: <strong>${nextByClock.team}</strong> (${nextByClock.compete})</span><span>⏳ ~${clockTeams} team${clockTeams === 1 ? "" : "s"} • in ${formatDuration(rem)}</span>`;
+      } else {
+        nextBar.innerHTML = "<span>✅ Scheduled JAS routines complete for today.</span>";
+      }
+    } else if (dayJas.length) {
+      const first = dayJas[0];
+      const prior = countTeamsBefore(currentDay, first.order);
+      const priorTxt = prior === 0 ? "1st team on mat!" : `${prior} teams prior`;
+      nextBar.innerHTML = `<span>🐾 First JAS Up: <strong>${first.team}</strong> at <strong>${first.compete}</strong></span><span>Order #${first.order} (${priorTxt})</span>`;
+    } else {
+      nextBar.innerHTML = "";
+    }
     return;
   }
 
@@ -204,6 +280,33 @@ function renderLiveStrip() {
     strip.classList.add("is-live");
     $("live-stage-main").textContent = `Order #${live.order} On Mat`;
     $("live-stage-sub").textContent = `All upcoming times adjusted by ${driftTxt}.`;
+  }
+
+  const onMatJas = dayJas.find(j => j.order === live.order);
+  const nextJas = dayJas.find(j => j.order > live.order);
+
+  if (onMatJas) {
+    nextBar.classList.add("urgent");
+    if (nextJas) {
+      const tAway = countTeamsUntil(currentDay, live.order, nextJas.order);
+      const rem = getRemainingMinutesToEntry(nextJas, live);
+      nextBar.innerHTML = `<span>🔥 <strong>JAS ON MAT NOW: ${onMatJas.team}!</strong></span><span>Next JAS: <strong>${nextJas.team}</strong> in ${tAway} team${tAway === 1 ? "" : "s"}${rem !== null ? " (~" + formatDuration(rem) + ")" : ""}</span>`;
+    } else {
+      nextBar.innerHTML = `<span>🔥 <strong>JAS ON MAT NOW: ${onMatJas.team}!</strong></span><span>Final JAS routine of the day!</span>`;
+    }
+  } else if (nextJas) {
+    const tAway = countTeamsUntil(currentDay, live.order, nextJas.order);
+    const rem = getRemainingMinutesToEntry(nextJas, live);
+    const est = getAdjustedTime(nextJas.compete, live) || nextJas.compete;
+    if (tAway <= 5) nextBar.classList.add("urgent");
+    const leftHtml = tAway === 1
+      ? `🚨 <strong>NEXT UP ON DECK: ${nextJas.team}</strong>`
+      : `🐾 Next JAS: <strong>${nextJas.team}</strong>`;
+    const timePart = rem !== null ? ` (~${formatDuration(rem)})` : "";
+    const clockPart = live.driftMin ? `Est ${est}` : nextJas.compete;
+    nextBar.innerHTML = `<span>${leftHtml}</span><span>⏳ <strong>${tAway} team${tAway === 1 ? "" : "s"}</strong>${timePart} • ${clockPart}</span>`;
+  } else {
+    nextBar.innerHTML = "<span>✅ All Jersey All Stars routines complete for this day.</span>";
   }
 }
 
@@ -263,24 +366,43 @@ function renderTier1MyTeams() {
   $("my-teams-container").innerHTML = myEntries.map(e => {
     const estComp = getAdjustedTime(e.compete, live);
     const estWu = getAdjustedTime(e.warmup_checkin, live);
+    const teamsAway = (live && live.order && e.order > live.order)
+      ? countTeamsUntil(currentDay, live.order, e.order)
+      : null;
+    const remMin = getRemainingMinutesToEntry(e, live);
 
     let badgeTxt = `#${e.order} in Hall C`;
     let badgeCls = "away-badge";
     let cardCls = "my-team-card";
+    let countdownChipHtml = "";
 
     if (live && live.order) {
-      const diff = e.order - live.order;
-      if (diff === 0) {
+      if (e.order === live.order) {
         badgeTxt = "🔥 ON MAT NOW";
         badgeCls += " urgent";
         cardCls += " on-stage";
-      } else if (diff > 0) {
-        badgeTxt = `${diff} routine${diff === 1 ? "" : "s"} away`;
-        if (diff <= 6) badgeCls += " urgent";
+        countdownChipHtml = `<span class="cd-chip now">🔥 Performing Now</span>`;
+      } else if (e.order > live.order) {
+        badgeTxt = teamsAway === 1 ? "🚨 ON DECK NEXT" : `${teamsAway} teams away`;
+        if (teamsAway <= 6) badgeCls += " urgent";
+        if (teamsAway === 1) {
+          countdownChipHtml = `<span class="cd-chip urgent">🚨 On Deck • 1 team${remMin !== null ? " (~" + formatDuration(remMin) + ")" : ""}</span>`;
+        } else {
+          countdownChipHtml = `<span class="cd-chip ${teamsAway <= 6 ? "urgent" : "active"}">⏳ ${teamsAway} teams${remMin !== null ? " (~" + formatDuration(remMin) + ")" : ""}</span>`;
+        }
       } else {
         badgeTxt = "Completed ✓";
         cardCls += " done";
+        countdownChipHtml = `<span class="cd-chip done">✓ Completed</span>`;
       }
+    } else if (getTodayIso() === currentDay && remMin !== null) {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const clockTeams = countClockTeamsUntil(currentDay, nowMins, e.order);
+      countdownChipHtml = `<span class="cd-chip active">⏳ ~${clockTeams} team${clockTeams === 1 ? "" : "s"} (${formatDuration(remMin)})</span>`;
+    } else {
+      const prior = countTeamsBefore(currentDay, e.order);
+      countdownChipHtml = `<span class="cd-chip">⏳ ${prior === 0 ? "1st on mat" : prior + " teams prior"}</span>`;
     }
 
     return `
@@ -288,7 +410,7 @@ function renderTier1MyTeams() {
         <div class="mtc-top">
           <div>
             <div class="mtc-name">⭐ ${e.team}</div>
-            <div class="mtc-div">${e.division} • #${e.division_seq} of ${e.division_total} in Div • Panel ${e.panel}</div>
+            <div class="mtc-div">${e.division} • #${e.division_seq} of ${e.division_total} in Div • Panel ${e.panel} • Hall #${e.order}</div>
           </div>
           <span class="${badgeCls}">${badgeTxt}</span>
         </div>
@@ -313,7 +435,10 @@ function renderTier1MyTeams() {
           </div>
         </div>
         <div class="mtc-footer">
-          <span>Hall Order <strong>#${e.order}</strong> • ${e.tp} Athletes</span>
+          <div class="mtc-footer-left">
+            <span><strong>${e.tp}</strong> Athletes</span>
+            ${countdownChipHtml}
+          </div>
           <span>Awards: <strong>${e.awards_time || "TBD"}</strong></span>
         </div>
       </div>
@@ -347,7 +472,12 @@ function renderTier2JasFeed() {
     if (isPast) cls += " past-row";
     if (isNow) cls += " live-now-row";
 
-    const away = (live && live.order && e.order > live.order) ? ` • ${e.order - live.order} away` : "";
+    let away = "";
+    if (live && live.order && e.order > live.order) {
+      const tAway = countTeamsUntil(currentDay, live.order, e.order);
+      const rem = getRemainingMinutesToEntry(e, live);
+      away = ` • ⏳ ${tAway === 1 ? "On Deck" : tAway + " teams"}${rem !== null ? " (~" + formatDuration(rem) + ")" : ""}`;
+    }
 
     return `
       <div class="${cls}">
@@ -858,5 +988,9 @@ $("btn-push-live").addEventListener("click", () => {
   if (ord > 0) pushLiveSpotterOrder(ord);
 });
 $("btn-clear-live").addEventListener("click", clearLiveSpotter);
+
+setInterval(() => {
+  if (APP_DATA) renderAll();
+}, 30000);
 
 loadData();
