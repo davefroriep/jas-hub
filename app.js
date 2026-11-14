@@ -40,7 +40,7 @@ let currentDay = "2026-12-12";
 let currentViewMode = localStorage.getItem(LS_VIEW_MODE) === "full" ? "full" : "hub";
 let currentTier = Number(localStorage.getItem(LS_TIER) || 3);
 let currentQuickFilter = "all"; // 'all' | 'jas' | 'rivals'
-let starredTeams = JSON.parse(localStorage.getItem(LS_STARRED) || '["Sea Witches","Kryptonite"]');
+let starredTeams = JSON.parse(localStorage.getItem(LS_STARRED) || "[]");
 
 // Live / Sim State: { order, date, driftMin, updatedAt, mode: 'cloud' | 'sim' }
 let cloudLiveState = JSON.parse(localStorage.getItem(LS_LAST_LIVE) || "null");
@@ -144,15 +144,14 @@ function renderTeamChips() {
   const roster = APP_DATA.season.jas_roster;
   $("team-chips").innerHTML = roster.map(r => {
     const sel = starredTeams.includes(r.team) ? "selected" : "";
-    const tag = r.family_athlete ? ` (${r.family_athlete})` : "";
-    return `<button type="button" class="team-chip ${sel}" data-team="${r.team}">${r.team}${tag}</button>`;
+    return `<button type="button" class="team-chip ${sel}" data-team="${r.team}">${r.team}</button>`;
   }).join("");
 
   document.querySelectorAll(".team-chip").forEach(btn => {
     btn.addEventListener("click", () => {
       const t = btn.dataset.team;
       if (starredTeams.includes(t)) {
-        if (starredTeams.length > 1) starredTeams = starredTeams.filter(x => x !== t);
+        starredTeams = starredTeams.filter(x => x !== t);
       } else {
         starredTeams.push(t);
       }
@@ -240,23 +239,28 @@ function renderConflicts() {
 
 function renderTier1MyTeams() {
   const live = getActiveLive();
-  const rosterMap = Object.fromEntries(APP_DATA.season.jas_roster.map(r => [r.team, r]));
   const myEntries = ENTRIES.filter(e => e.date === currentDay && e.is_jas && starredTeams.includes(e.team))
     .sort((a, b) => a.order - b.order);
 
   $("my-teams-count").textContent = `${myEntries.length} competing ${currentDay === "2026-12-12" ? "Saturday" : "Sunday"}`;
 
+  if (!starredTeams.length) {
+    $("my-teams-container").innerHTML = `
+      <div class="my-team-card">
+        <div class="mtc-div">Tap <strong>⚙️ My Teams</strong> above to pick your athlete's team(s) — saved privately on your phone for Stage Pulse, Warm-Up times, and division rivals.</div>
+      </div>`;
+    return;
+  }
+
   if (!myEntries.length) {
     $("my-teams-container").innerHTML = `
       <div class="my-team-card">
-        <div class="mtc-div">None of your starred teams compete on this day (1-day Novice/Prep teams compete Saturday only). Tap ⚙️ My Teams or switch to SAT Dec 12.</div>
+        <div class="mtc-div">None of your selected teams compete on this day (1-day Novice/Prep teams compete Saturday only). Tap ⚙️ My Teams or switch to SAT Dec 12.</div>
       </div>`;
     return;
   }
 
   $("my-teams-container").innerHTML = myEntries.map(e => {
-    const rMeta = rosterMap[e.team] || {};
-    const athleteTag = rMeta.family_athlete ? ` • ${rMeta.family_athlete}` : "";
     const estComp = getAdjustedTime(e.compete, live);
     const estWu = getAdjustedTime(e.warmup_checkin, live);
 
@@ -283,7 +287,7 @@ function renderTier1MyTeams() {
       <div class="${cardCls}">
         <div class="mtc-top">
           <div>
-            <div class="mtc-name">⭐ ${e.team}${athleteTag}</div>
+            <div class="mtc-name">⭐ ${e.team}</div>
             <div class="mtc-div">${e.division} • #${e.division_seq} of ${e.division_total} in Div • Panel ${e.panel}</div>
           </div>
           <span class="${badgeCls}">${badgeTxt}</span>
@@ -526,9 +530,7 @@ function renderSeasonModal() {
     const activeBadge = c.event_id === APP_DATA.active_event_id
       ? `<span class="tag-badge tag-jas" style="margin-left:6px;">ACTIVE SCHEDULE LOADED</span>`
       : "";
-    const girlsBadge = c.brynn_avenleigh
-      ? `<span style="color:#5eead4; font-weight:700;">Sea Witches &amp; Kryptonite: YES</span>`
-      : `<span style="color:var(--text-dim);">Youth Only (Evil Queens)</span>`;
+    const scopeBadge = `<span style="color:#5eead4; font-weight:700;">${c.teams_attending}</span>`;
     const linkHtml = c.official_url
       ? `<a href="${c.official_url}" target="_blank" rel="noopener" class="link-btn" style="margin-left:6px;">Producer Page ↗</a>`
       : "";
@@ -539,7 +541,7 @@ function renderSeasonModal() {
           ${c.seq}. ${c.name} — <span style="color:var(--teal);">${c.dates_display}</span>${activeBadge}
         </div>
         <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
-          📍 ${c.venue_detail || c.location} • ${c.teams_attending} • ${girlsBadge}
+          📍 ${c.venue_detail || c.location} • ${scopeBadge}
         </div>
         <div style="font-size:0.7rem; color:var(--text-dim); margin-top:3px;">
           📡 <strong>Schedule Radar:</strong> ${c.schedule_radar || "TBD"} ${linkHtml}
@@ -747,8 +749,14 @@ $("btn-teams-toggle").addEventListener("click", () => {
 $("btn-picker-done").addEventListener("click", () => {
   $("picker-card").style.display = "none";
 });
-$("btn-preset-froriep").addEventListener("click", () => {
-  starredTeams = ["Sea Witches", "Kryptonite"];
+$("btn-select-all").addEventListener("click", () => {
+  starredTeams = APP_DATA.season.jas_roster.map(r => r.team);
+  localStorage.setItem(LS_STARRED, JSON.stringify(starredTeams));
+  renderTeamChips();
+  renderAll();
+});
+$("btn-clear-teams").addEventListener("click", () => {
+  starredTeams = [];
   localStorage.setItem(LS_STARRED, JSON.stringify(starredTeams));
   renderTeamChips();
   renderAll();
@@ -826,7 +834,7 @@ $("btn-run-sim").addEventListener("click", () => {
   renderAll();
 });
 
-$("btn-preset-brynn").addEventListener("click", () => {
+$("btn-preset-sample").addEventListener("click", () => {
   currentDay = "2026-12-12";
   syncDayTabsUI();
   $("sim-order-input").value = "85";

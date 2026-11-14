@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jas-hub-v1.1';
+const CACHE_NAME = 'jas-hub-v1.2';
 const CORE_ASSETS = [
   './',
   './index.html',

@@ -61,7 +61,10 @@
       <div id="team-chips" class="chips-grid"></div>
       <div class="picker-presets">
         <span style="color:var(--text-dim);">Saved on your phone • Works 100% offline</span>
-        <button id="btn-preset-froriep" class="link-btn" type="button">Select Sea Witches + Kryptonite</button>
+        <div style="display:flex; gap:10px;">
+          <button id="btn-select-all" class="link-btn" type="button">Select All 9</button>
+          <button id="btn-clear-teams" class="link-btn" type="button">Clear</button>
+        </div>
       </div>
     </section>
 
@@ -79,7 +82,7 @@
         <input id="sim-order-input" class="mini-input" type="number" min="1" max="228" placeholder="Order #" value="85" />
         <input id="sim-drift-input" class="mini-input" type="number" min="-60" max="120" placeholder="Drift (m)" value="14" />
         <button id="btn-run-sim" class="action-btn" type="button">🧪 Preview Local</button>
-        <button id="btn-preset-brynn" class="pill-btn" type="button">Test 4 Away (#85, +14m)</button>
+        <button id="btn-preset-sample" class="pill-btn" type="button">Sample Preview (#85, +14m)</button>
         <button id="btn-clear-sim" class="pill-btn" type="button">Reset Preview</button>
       </div>
 
@@ -211,7 +214,7 @@
 
     <footer class="rev-footer">
       <div>Jersey All Stars (Toms River, NJ) — Strictly Unaffiliated With Other Programs</div>
-      <div style="margin-top:4px; font-weight:700; color:var(--text-muted);">Rev v1.1 — 2026-11-13 17:34</div>
+      <div style="margin-top:4px; font-weight:700; color:var(--text-muted);">Rev v1.2 — 2026-11-14 08:22</div>
     </footer>
   </div>
 
