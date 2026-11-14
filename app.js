@@ -310,36 +310,6 @@ function renderLiveStrip() {
   }
 }
 
-function renderConflicts() {
-  const dayJas = ENTRIES.filter(e => e.date === currentDay && e.is_jas && starredTeams.includes(e.team))
-    .sort((a, b) => a.order - b.order);
-
-  if (dayJas.length < 2) {
-    $("conflict-box").innerHTML = "";
-    return;
-  }
-
-  const alerts = [];
-  for (let i = 0; i < dayJas.length - 1; i++) {
-    const first = dayJas[i];
-    const second = dayJas[i + 1];
-    const firstComp = parseMinutes(first.compete);
-    const secWu = parseMinutes(second.warmup_checkin);
-    if (firstComp !== null && secWu !== null) {
-      const gap = secWu - firstComp;
-      if (gap <= 55) {
-        alerts.push(
-          `<div class="conflict-alert">
-            <strong>⚠️ Two-Athlete Transition Squeeze (${gap}m gap):</strong>
-            <strong>${second.team}</strong> Warm-Up Check-In (<strong>${second.warmup_checkin}</strong>) is only <strong>${gap} mins</strong> after <strong>${first.team}</strong> competes (<strong>${first.compete}</strong>). Once coaches set their 30–45m pre-check-in huddle, <strong>${second.team}'s</strong> meet-up will overlap <strong>${first.team}</strong> on stage — have both athletes hair &amp; uniform ready before ${first.warmup_checkin}!
-          </div>`
-        );
-      }
-    }
-  }
-  $("conflict-box").innerHTML = alerts.join("");
-}
-
 function renderTier1MyTeams() {
   const live = getActiveLive();
   const myEntries = ENTRIES.filter(e => e.date === currentDay && e.is_jas && starredTeams.includes(e.team))
@@ -686,7 +656,6 @@ function renderAll() {
     renderFullHallSection();
   } else {
     renderLiveStrip();
-    renderConflicts();
     renderTier1MyTeams();
     renderTier2JasFeed();
     renderRivalsSection();

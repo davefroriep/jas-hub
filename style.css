@@ -479,21 +479,6 @@ button {
   color: #fcd34d;
 }
 
-/* Conflict Alert */
-.conflict-alert {
-  margin-top: 10px;
-  background: var(--amber-bg);
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  font-size: 0.76rem;
-  color: #fde68a;
-}
-
-.conflict-alert strong {
-  color: #fbbf24;
-}
-
 /* Section Headers */
 .sec-hdr {
   margin: 16px 2px 8px;
